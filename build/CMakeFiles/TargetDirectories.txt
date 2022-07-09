@@ -1,0 +1,5 @@
+C:/Users/Xiada/Desktop/lang/build/CMakeFiles/edit_cache.dir
+C:/Users/Xiada/Desktop/lang/build/CMakeFiles/rebuild_cache.dir
+C:/Users/Xiada/Desktop/lang/build/src/CMakeFiles/lang.dir
+C:/Users/Xiada/Desktop/lang/build/src/CMakeFiles/edit_cache.dir
+C:/Users/Xiada/Desktop/lang/build/src/CMakeFiles/rebuild_cache.dir
