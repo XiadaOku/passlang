@@ -1,3 +1,7 @@
+not done:
+	vars
+	random-choises
+
 vars (get or set)
 calculations
 checks
