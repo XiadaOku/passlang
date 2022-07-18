@@ -172,9 +172,6 @@ namespace passlang {
 			std::vector<ChecksRowElement> checks;
 			while (peekToken().type != TokenType::end && peekToken().type != TokenType::closeBracket) {
 				checks.push_back(parseCheck());
-				if (peekToken().type != TokenType::space) {
-					throw std::runtime_error("checks must be separated by space");
-				}
 				skipSpace();
 			}
 			popToken();
