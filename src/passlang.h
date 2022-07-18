@@ -10,20 +10,10 @@
 
 
 namespace passlang {
-	std::vector<std::function<void()>> deletables;
-
+	extern std::vector<std::function<void()>> deletables;
 	template<typename T>
-	void addDeletable(T* object) {
-		std::function<void()> func = [object]() { delete object; };
-		deletables.push_back(func);
-	}
-
-	void deleteAll() {
-		for (size_t i = 0; i < deletables.size(); i++) {
-			deletables[i]();
-		}
-		deletables.clear();
-	}
+	extern void addDeletable(T* object);
+	extern void deleteAll();
 
 	template<typename T>
 	class Flaged {
@@ -67,79 +57,12 @@ namespace passlang {
 		loopIteratorVariable,
 		end
 	};
-
 	typedef Flaged<TokenType> Token;
-
-	std::vector<Token> tokenize(std::string expression) {
-		std::vector<Token> tokens;
-
-		for (size_t ind = 0; ind < expression.length(); ind++) {
-			char i = expression[ind];
-			size_t new_ind;
-
-			switch (i) {
-				case '(':
-					tokens.push_back(Token(TokenType::openBracket));
-					break;
-				case ')':
-					tokens.push_back(Token(TokenType::closeBracket));
-					break;
-				case '[':
-					tokens.push_back(Token(TokenType::openSquareBracket));
-					break;
-				case ']':
-					tokens.push_back(Token(TokenType::closeSquareBracket));
-					break;
-				case ';':
-					tokens.push_back(Token(TokenType::semicolon));
-					break;
-				case '+':
-				case '-':
-				case '*':
-				case '/':
-				case '%':
-					tokens.push_back(Token(TokenType::operation, std::string(1, i)));
-					break;
-				case '.':
-					tokens.push_back(Token(TokenType::checkSeparator));
-					break;
-				case ' ':
-					tokens.push_back(Token(TokenType::space));
-					break;
-				case 'n':
-					tokens.push_back(Token(TokenType::numofChecksVariable));
-					break;
-				case 'i':
-					new_ind = ind;
-					do {
-						new_ind++;
-						i = expression[new_ind];
-					} while (new_ind < expression.length() && i >= '0' && i <= '9');
-					if (new_ind - (ind + 1)) {
-						tokens.push_back(Token(TokenType::loopIteratorVariable, std::stoi(expression.substr(ind + 1, new_ind - (ind + 1)))));
-						ind = new_ind - 1;
-					}
-					break;
-				default:
-					new_ind = ind;
-					while (new_ind < expression.length() && i >= '0' && i <= '9') {
-						new_ind++;
-						i = expression[new_ind];
-					}
-					if (new_ind - ind) {
-						tokens.push_back(Token(TokenType::operand, std::stoi(expression.substr(ind, new_ind - ind))));
-						ind = new_ind - 1;
-					}
-					break;
-			}
-		}
-		tokens.push_back(Token(TokenType::end));
-
-		return tokens;
-	}
+	std::vector<Token> tokenize(std::string expression);
 
 
 	/************* PARSER *************/
+	// types
 	enum class OperandType {
 		number = 0,
 		expression,
@@ -148,14 +71,7 @@ namespace passlang {
 		numofchecks,
 		loopiterator
 	};
-
 	typedef Flaged<OperandType> Operand;
-
-	struct ExpressionNode {
-		Operand firstOperand;
-		std::string operation;
-		Operand secondOperand;
-	};
 
 	enum class CheckElementType {
 		number = 0,
@@ -166,21 +82,37 @@ namespace passlang {
 		numofchecks,
 		loopiterator
 	};
-
 	typedef Flaged<CheckElementType> CheckElement;
-
-	struct Check {
-		CheckElement world;
-		CheckElement x, y;
-	};
 
 	enum class ChecksRowElementType {
 		check = 0,
 		loop,
 		randomcheckchoice
 	};
-
 	typedef Flaged<ChecksRowElementType> ChecksRowElement;
+
+	enum class RandomChoiceChanceType {
+		none = 0,
+		operand
+	};
+	typedef Flaged<RandomChoiceChanceType> RandomChoiceChance;
+
+	enum class RandomChoiceValueType {
+		operand = 0,
+		checksrow
+	};
+	typedef Flaged<RandomChoiceValueType> RandomChoiceValue;
+
+	struct ExpressionNode {
+		Operand firstOperand;
+		std::string operation;
+		Operand secondOperand;
+	};
+
+	struct Check {
+		CheckElement world;
+		CheckElement x, y;
+	};
 
 	struct Loop {
 		Operand length;
@@ -192,27 +124,13 @@ namespace passlang {
 		Operand finish;
 	};
 
-	enum class RandomChoiceChanceType {
-		none = 0,
-		operand
-	};
-
-	typedef Flaged<RandomChoiceChanceType> RandomChoiceChance;
-
-	enum class RandomChoiceValueType {
-		operand = 0,
-		checksrow
-	};
-
-	typedef Flaged<RandomChoiceValueType> RandomChoiceValue;
-
 	struct RandomChoiceElement {
 		RandomChoiceValue value;
 		RandomChoiceChance chance;
 		RandomChoiceChance equals;
 	};
-
 	typedef std::vector<RandomChoiceElement> RandomChoice;
+
 
 	class Parser {
 	private:
@@ -254,6 +172,9 @@ namespace passlang {
 			std::vector<ChecksRowElement> checks;
 			while (peekToken().type != TokenType::end && peekToken().type != TokenType::closeBracket) {
 				checks.push_back(parseCheck());
+				if (peekToken().type != TokenType::space) {
+					throw std::runtime_error("checks must be separated by space");
+				}
 				skipSpace();
 			}
 			popToken();
@@ -543,52 +464,33 @@ namespace passlang {
 
 
 	/************* INTERPRETER *************/
-	enum class World {
-		Fostral = 0,
-		Glorx,
-		Necross,
-		Xplo,
-		Khox,
-		Boozeena,
-		Weexow,
-		Hmok,
-		Threall,
-		Arkonoy,
-		size
-	};
+	const int randomPlaceholder = -1;
 
 	struct C_Check {
-		World world;
-		unsigned int x, y;
+		int world;
+		int x, y;
 	};
-
-	std::ostream& operator<<(std::ostream& stream, C_Check check) {
-		stream << int(check.world);
-		stream << ".";
-		stream << check.x;
-		stream << ".";
-		stream << check.y;
-		return stream;
-	}
+	extern std::ostream& operator<<(std::ostream& stream, C_Check check);
 
 	enum class RandomChoiceResultType {
 		number = 0,
 		vector
 	};
-
 	typedef Flaged<RandomChoiceResultType> RandomChoiceResult;
+
 
 	class Interpreter {
 	private:
-		const int randomPlaceholder = -1;
 		std::vector<int> loopIterators;
+		std::function<C_Check(int, int, int)> checkConstructor;
 
 	public:
 		int numberOfChecks;
 
-		Interpreter(int numberOfChecks) {
+		Interpreter(int numberOfChecks, std::function<C_Check(int, int, int)> checkConstructor) {
 			std::srand(std::time(nullptr));
 			this->numberOfChecks = numberOfChecks;
+			this->checkConstructor = checkConstructor;
 		}
 
 
@@ -730,23 +632,11 @@ namespace passlang {
 			int world, x, y;
 
 			world = eval(check.world);
-			if (world == randomPlaceholder) {
-				world = std::rand() % (int)World::size;
-			}
 			x = eval(check.x);
-			if (x == randomPlaceholder) {
-				x = std::rand() % 2048;
-			}
 			y = eval(check.y);
-			if (y == randomPlaceholder) {
-				y = std::rand() % 2048;
-			}
+			C_Check c_check = checkConstructor(world, x, y);
 
-			if (world < 0 || world >= (int)World::size) {
-				throw std::runtime_error("world value out of bounds");
-			}
-
-			return {static_cast<World>(world), static_cast<unsigned int>(x), static_cast<unsigned int>(y)};
+			return c_check;
 		}
 
 		int eval(ExpressionNode expression) {
@@ -804,20 +694,4 @@ namespace passlang {
 	};
 }
 
-
-std::vector<passlang::C_Check> getChecks(int checksNumber, std::string expression) {
-    auto tokens = passlang::tokenize(expression);
-	passlang::Parser parser(tokens);
-	auto trees = parser.parse();
-
-	passlang::Interpreter interpreter = passlang::Interpreter(checksNumber);
-
-	std::vector<passlang::C_Check> results;
-	for (auto i: trees) {
-		std::vector<passlang::C_Check> checks = interpreter.eval(i);
-		results.insert(results.end(), checks.begin(), checks.end());
-	}
-	passlang::deleteAll();
-
-	return results;
-}
+std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std::function<passlang::C_Check(int, int, int)> checkConstructor);

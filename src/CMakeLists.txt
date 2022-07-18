@@ -1,5 +1,5 @@
 set(src_files
-	main.cpp
+	passlang.cpp
 )
 
-add_executable(lang ${src_files})
+add_library(lang STATIC ${src_files})
