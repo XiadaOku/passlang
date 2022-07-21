@@ -129,7 +129,10 @@ namespace passlang {
 		RandomChoiceChance chance;
 		RandomChoiceChance equals;
 	};
-	typedef std::vector<RandomChoiceElement> RandomChoice;
+	struct RandomChoice {
+		RandomChoiceValueType type;
+		std::vector<RandomChoiceElement> choices;
+	};
 
 
 	class Parser {
@@ -219,10 +222,18 @@ namespace passlang {
 			if (popToken().type != TokenType::openSquareBracket) {
 				throw std::runtime_error("waited for [ at the start of randchoice");
 			}
+			skipSpace();
 
 			RandomChoice randomChoice;
+			if (is_checks) {
+				randomChoice.type = RandomChoiceValueType::checksrow;
+			}
+			else {
+				randomChoice.type = RandomChoiceValueType::operand;
+			}
+
 			while (peekToken().type != TokenType::closeSquareBracket) {
-				randomChoice.push_back(parseRandomChoiceElement(is_checks));
+				randomChoice.choices.push_back(parseRandomChoiceElement(is_checks));
 				skipSpace();
 			}
 			popToken(); // closeSquareBracket
@@ -511,14 +522,14 @@ namespace passlang {
 			int freeChance = 100;
 			int freeElements = 0;
 
-			for (int i = 0; i < randomChoice.size(); i++) {
-				if (randomChoice[i].equals.type == RandomChoiceChanceType::operand) {
-					if (eval(randomChoice[i].chance.get<Operand>()) == eval(randomChoice[i].equals.get<Operand>())) {
-						return eval(randomChoice[i]);
+			for (int i = 0; i < randomChoice.choices.size(); i++) {
+				if (randomChoice.choices[i].equals.type == RandomChoiceChanceType::operand) {
+					if (eval(randomChoice.choices[i].chance.get<Operand>()) == eval(randomChoice.choices[i].equals.get<Operand>())) {
+						return eval(randomChoice.choices[i]);
 					}
 				}
-				else if (randomChoice[i].chance.type == RandomChoiceChanceType::operand) {
-					freeChance -= eval(randomChoice[i].chance.get<Operand>());
+				else if (randomChoice.choices[i].chance.type == RandomChoiceChanceType::operand) {
+					freeChance -= eval(randomChoice.choices[i].chance.get<Operand>());
 				}
 				else {
 					freeElements++;
@@ -536,23 +547,23 @@ namespace passlang {
 			}
 
 			float chance = 0;
-			for (int i = 0; i < randomChoice.size(); i++) {
-				if (randomChoice[i].equals.type == RandomChoiceChanceType::operand) {
+			for (int i = 0; i < randomChoice.choices.size(); i++) {
+				if (randomChoice.choices[i].equals.type == RandomChoiceChanceType::operand) {
 					continue;
 				}
-				else if (randomChoice[i].chance.type == RandomChoiceChanceType::operand) {
-					chance += eval(randomChoice[i].chance.get<Operand>());
+				else if (randomChoice.choices[i].chance.type == RandomChoiceChanceType::operand) {
+					chance += eval(randomChoice.choices[i].chance.get<Operand>());
 				}
 				else {
 					chance += chanceOnFree;
 				}
 
 				if (chance >= random) {
-					return eval(randomChoice[i]);
+					return eval(randomChoice.choices[i]);
 				}
 			}
 
-			if (randomChoice[0].value.type == RandomChoiceValueType::checksrow) {
+			if (randomChoice.type == RandomChoiceValueType::checksrow) {
 				return RandomChoiceResult(RandomChoiceResultType::vector, std::vector<C_Check>());
 			}
 			throw std::runtime_error("can't choose anything in randomchoice");
