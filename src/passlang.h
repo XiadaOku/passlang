@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include <cstdlib>
-#include <ctime>
 #include <functional>
 
 
@@ -491,14 +489,15 @@ namespace passlang {
 	private:
 		std::vector<int> loopIterators;
 		std::function<C_Check(int, int, int)> checkConstructor;
+		std::function<int(int, int)> randrangeCallback;
 
 	public:
 		int numberOfChecks;
 
-		Interpreter(int numberOfChecks, std::function<C_Check(int, int, int)> checkConstructor) {
-			std::srand(std::time(nullptr));
+		Interpreter(int numberOfChecks, std::function<C_Check(int, int, int)> checkConstructor, std::function<int(int, int)> randrangeCallback) {
 			this->numberOfChecks = numberOfChecks;
 			this->checkConstructor = checkConstructor;
+			this->randrangeCallback = randrangeCallback;
 		}
 
 
@@ -609,8 +608,7 @@ namespace passlang {
 				start = finish;
 				finish = temp;
 			}
-			// rand should be specified by user
-			return start + (std::rand() % (finish - start + 1));
+			return randrangeCallback(start, finish);
 		}
 
 		int eval(CheckElement checkElement) {
@@ -704,4 +702,4 @@ namespace passlang {
 	};
 }
 
-std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std::function<passlang::C_Check(int, int, int)> checkConstructor);
+std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std::function<passlang::C_Check(int, int, int)> checkConstructor, std::function<int(int, int)> randrangeCallback);

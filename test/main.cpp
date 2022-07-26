@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 #include "../src/passlang.h"
 
 
@@ -24,7 +26,7 @@ int main(int argc, char** args) {
 
 	std::string expression = "0-2 (n - 1)(-)";
 	std::getline(std::cin >> std::ws, expression);
-	
+
 	auto getChecks = initPasslang([](int world, int x, int y) -> passlang::C_Check {
 		if (world == passlang::randomPlaceholder) {
 			do {
@@ -49,7 +51,11 @@ int main(int argc, char** args) {
 		}
 
 		return {world, x, y};
+	}, [](int start, int finish) -> int {
+		return start + (std::rand() % (finish - start + 1));
 	});
+
+	std::srand(std::time(nullptr));
 
 	std::vector<passlang::C_Check> results = getChecks(checksNumber, expression);
 

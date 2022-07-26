@@ -100,13 +100,13 @@ namespace passlang {
 }
 
 
-std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std::function<passlang::C_Check(int, int, int)> checkConstructor) {
-	return [checkConstructor](int checksNumber, std::string expression) -> std::vector<passlang::C_Check> {
+std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std::function<passlang::C_Check(int, int, int)> checkConstructor, std::function<int(int, int)> randrangeCallback) {
+	return [checkConstructor, randrangeCallback](int checksNumber, std::string expression) -> std::vector<passlang::C_Check> {
 		auto tokens = passlang::tokenize(expression);
 		passlang::Parser parser(tokens);
 		auto trees = parser.parse();
 
-		passlang::Interpreter interpreter = passlang::Interpreter(checksNumber, checkConstructor);
+		passlang::Interpreter interpreter = passlang::Interpreter(checksNumber, checkConstructor, randrangeCallback);
 
 		std::vector<passlang::C_Check> results;
 		for (auto i: trees) {
