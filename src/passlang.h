@@ -10,29 +10,30 @@
 
 
 namespace passlang {
-	extern std::vector<std::function<void()>> deletables;
-	template<typename T>
-	extern void addDeletable(T* object);
-	extern void deleteAll();
+	namespace Deleter {
+		template<typename T>
+		void addDeletable(T* object);
+		void deleteAll();
+	}
 
 	template<typename T>
-	class Flaged {
+	class TypeHolder {
 	private:
 		void* ptr = nullptr;
 
 	public:
 		T type;
 
-		Flaged(T type) {
+		TypeHolder(T type) {
 			this->type = type;
 		}
 
 		template<typename T1>
-		Flaged(T type, T1 value) {
+		TypeHolder(T type, T1 value) {
 			this->type = type;
 			T1* t_ptr = new T1(value);
 			ptr = t_ptr;
-			addDeletable(t_ptr);
+			Deleter::addDeletable(t_ptr);
 		}
 
 		template<typename T1>
@@ -57,12 +58,11 @@ namespace passlang {
 		loopIteratorVariable,
 		end
 	};
-	typedef Flaged<TokenType> Token;
+	typedef TypeHolder<TokenType> Token;
 	std::vector<Token> tokenize(std::string expression);
 
 
 	/************* PARSER *************/
-	// types
 	enum class OperandType {
 		number = 0,
 		expression,
@@ -71,7 +71,7 @@ namespace passlang {
 		numofchecks,
 		loopiterator
 	};
-	typedef Flaged<OperandType> Operand;
+	typedef TypeHolder<OperandType> Operand;
 
 	enum class CheckElementType {
 		number = 0,
@@ -82,26 +82,26 @@ namespace passlang {
 		numofchecks,
 		loopiterator
 	};
-	typedef Flaged<CheckElementType> CheckElement;
+	typedef TypeHolder<CheckElementType> CheckElement;
 
 	enum class ChecksRowElementType {
 		check = 0,
 		loop,
 		randomcheckchoice
 	};
-	typedef Flaged<ChecksRowElementType> ChecksRowElement;
+	typedef TypeHolder<ChecksRowElementType> ChecksRowElement;
 
 	enum class RandomChoiceChanceType {
 		none = 0,
 		operand
 	};
-	typedef Flaged<RandomChoiceChanceType> RandomChoiceChance;
+	typedef TypeHolder<RandomChoiceChanceType> RandomChoiceChance;
 
 	enum class RandomChoiceValueType {
 		operand = 0,
 		checksrow
 	};
-	typedef Flaged<RandomChoiceValueType> RandomChoiceValue;
+	typedef TypeHolder<RandomChoiceValueType> RandomChoiceValue;
 
 	struct ExpressionNode {
 		Operand firstOperand;
@@ -148,17 +148,16 @@ namespace passlang {
 
 		Token peekToken() {
 			if (index >= tokens.size()) {
-				throw std::runtime_error("aaaaaaaaa");
+				throw std::runtime_error("Parser::peekToken: out of bounds");
 			}
 			return tokens[index];
 		}
 
 		Token popToken() {
 			if (index >= tokens.size()) {
-				throw std::runtime_error("aaaa");
+				throw std::runtime_error("Parser::popToken: out of bounds");
 			}
-			Token token = tokens[index++];
-			return token;
+			return tokens[index++];
 		}
 
 		void skipSpace() {
@@ -187,7 +186,7 @@ namespace passlang {
 			CheckElement rand = CheckElement(CheckElementType::random);
 
 			if (peekToken().type == TokenType::openSquareBracket) {
-				int old_index = index;
+				size_t old_index = index;
 				RandomChoice randomCheckChoice = parseRandomChoice(true);
 				if (peekToken().type == TokenType::checkSeparator) {
 					index = old_index;
@@ -210,7 +209,7 @@ namespace passlang {
 
 			CheckElement x = parseCheckElement();
 			if (popToken().type != TokenType::checkSeparator) {
-				throw std::runtime_error("error when tryed to parse check");
+				throw std::runtime_error("Parser::parseCheck: can't find \".\" after x coordinate");
 			}
 
 			CheckElement y = parseCheckElement();
@@ -220,7 +219,7 @@ namespace passlang {
 
 		RandomChoice parseRandomChoice(bool is_checks=false) {
 			if (popToken().type != TokenType::openSquareBracket) {
-				throw std::runtime_error("waited for [ at the start of randchoice");
+				throw std::runtime_error("Parser::parseRandomChoice: can't find \"[\" at the start");
 			}
 			skipSpace();
 
@@ -257,14 +256,14 @@ namespace passlang {
 			if (peekToken().type == TokenType::semicolon) {
 				popToken();
 				if (peekToken().type == TokenType::space) {
-					throw std::runtime_error("chance must be set after semicolon without spaces");
+					throw std::runtime_error("Parser::parseRandomChoiceElement: chance must be set after semicolon without spaces");
 				}
 				chance = RandomChoiceChance(RandomChoiceChanceType::operand, parseOperand());
 
 				if (peekToken().type == TokenType::semicolon) {
 					popToken();
 					if (peekToken().type == TokenType::space) {
-						throw std::runtime_error("equals must be set after semicolon without spaces");
+						throw std::runtime_error("Parser::parseRandomChoiceElement: equalable must be set after semicolon without spaces");
 					}
 					equals = RandomChoiceChance(RandomChoiceChanceType::operand, parseOperand());
 				}
@@ -277,7 +276,7 @@ namespace passlang {
 			Operand loopLength = CheckElement2Operand(length);
 
 			if (popToken().type != TokenType::openBracket) {
-				throw std::runtime_error("waited for ( in start of loop");
+				throw std::runtime_error("Parser::parseLoop: can't find \"(\" at the start");
 			}
 			Loop loop{loopLength, parseChecksRow()};
 			return ChecksRowElement(ChecksRowElementType::loop, loop);
@@ -309,7 +308,7 @@ namespace passlang {
 				return checkElement;
 			}
 			else {
-				throw std::runtime_error("no known check element like this");
+				throw std::runtime_error("Parser::parseCheckElement: can't use given Token");
 			}
 
 			if (peekToken().type == TokenType::operation && peekToken().get<std::string>() == "-") {
@@ -337,12 +336,12 @@ namespace passlang {
 			else if (checkElement.type == CheckElementType::loopiterator) {
 				return Operand(OperandType::loopiterator, checkElement.get<int>());
 			}
-			throw std::runtime_error("can't use checkElementType as operandType");
+			throw std::runtime_error("Parser::CheckElement2Operand: can't use given CheckElement");
 		}
 
 		RandomRange parseRandomRange(Operand start) {
 			if (peekToken().type != TokenType::operand && peekToken().get<std::string>() != "-") {
-				throw std::runtime_error("waited - in randrange");
+				throw std::runtime_error("Parser::parseRandomRange: can't find \"-\" after first operand");
 			}
 			popToken();
 
@@ -355,7 +354,7 @@ namespace passlang {
 			skipSpace();
 			Token openBracket = popToken();
 			if (openBracket.type != TokenType::openBracket) {
-				throw std::runtime_error("where's my (");
+				throw std::runtime_error("Parser::parseExpression: can't find \"(\" at the start");
 			}
 
 			std::vector<Operand> operands = {parseOperand()};
@@ -365,7 +364,7 @@ namespace passlang {
 				skipSpace();
 				Token operation = popToken();
 				if (operation.type != TokenType::operation) {
-					throw std::runtime_error("where's my +");
+					throw std::runtime_error("Parser::parseExpression: can't find operation after operand");
 				}
 				operations.push_back(operation.get<std::string>());
 
@@ -374,6 +373,7 @@ namespace passlang {
 			} while (peekToken().type != TokenType::closeBracket);
 			popToken(); // closeBracket
 
+			// Builds list of operations and operands into nodes, sorts them by math rules
 			std::vector<std::string> plus_operations, minus_operations;
 			std::vector<Operand> plus_operands, minus_operands;
 
@@ -457,12 +457,12 @@ namespace passlang {
 				operand = Operand(OperandType::loopiterator, popToken().get<int>());
 			}
 			else {
-				throw std::runtime_error("no such operand");
+				throw std::runtime_error("Parser::parseOperand: can't use given Token");
 			}
 
 			if (peekToken().type == TokenType::operation && peekToken().get<std::string>() == "-") {
 				if (is_finish) {
-					throw std::runtime_error("randrange takes only two points");
+					throw std::runtime_error("Parser::parseOperand: randrange takes only 2 points, but second \"-\" was found");
 				}
 				return Operand(OperandType::randomrange, parseRandomRange(operand));
 			}
@@ -484,7 +484,7 @@ namespace passlang {
 		number = 0,
 		vector
 	};
-	typedef Flaged<RandomChoiceResultType> RandomChoiceResult;
+	typedef TypeHolder<RandomChoiceResultType> RandomChoiceResult;
 
 
 	class Interpreter {
@@ -513,7 +513,7 @@ namespace passlang {
 				return eval(check.get<RandomChoice>()).get<std::vector<C_Check>>();
 			}
 
-			throw std::runtime_error("no known type like this for checkRowElement");
+			throw std::runtime_error("Interpreter::evalChecksRowElement: can't use given ChecksRowElement");
 		}
 
 		RandomChoiceResult eval(RandomChoice randomChoice) {
@@ -536,13 +536,13 @@ namespace passlang {
 				}
 			}
 			if (freeChance < 0) {
-				throw std::runtime_error("used more than 100 percents as chances");
+				throw std::runtime_error("Interpreter::evalRandomChoice: used more than 100 percents as chances");
 			}
 
 			if (freeElements) {
 				chanceOnFree = (float)freeChance / freeElements;
-				if (chanceOnFree == 0 && freeChance > 0) {
-					throw std::runtime_error("too small chance for free elements, can't use");
+				if (chanceOnFree < 0.0001 && freeChance > 0) {
+					throw std::runtime_error("Interpreter::evalRandomChoide: too small chance for free elements, can't use");
 				}
 			}
 
@@ -566,7 +566,7 @@ namespace passlang {
 			if (randomChoice.type == RandomChoiceValueType::checksrow) {
 				return RandomChoiceResult(RandomChoiceResultType::vector, std::vector<C_Check>());
 			}
-			throw std::runtime_error("can't choose anything in randomchoice");
+			throw std::runtime_error("Interpreter::evalRandomChoice: can't choose item");
 		}
 
 		RandomChoiceResult eval(RandomChoiceElement randomChoiceElement) {
@@ -576,7 +576,7 @@ namespace passlang {
 			else if (randomChoiceElement.value.type == RandomChoiceValueType::checksrow) {
 				return RandomChoiceResult(RandomChoiceResultType::vector, eval(randomChoiceElement.value.get<ChecksRowElement>()));
 			}
-			throw std::runtime_error("can't use this RandomChoiceValueType");
+			throw std::runtime_error("Interpreter::evalRandomChoiceElement: can't use given RandomChoiceElement");
 		}
 
 		std::vector<C_Check> eval(Loop loop) {
@@ -605,9 +605,11 @@ namespace passlang {
 			int finish = eval(randomRange.finish);
 
 			if (finish < start) {
-				throw std::runtime_error("finish can't be lower than start of randrage");
+				int temp = start;
+				start = finish;
+				finish = temp;
 			}
-
+			// rand should be specified by user
 			return start + (std::rand() % (finish - start + 1));
 		}
 
@@ -633,7 +635,7 @@ namespace passlang {
 			else if (checkElement.type == CheckElementType::loopiterator) {
 				return getIterator(checkElement.get<int>());
 			}
-			throw std::runtime_error("not known checkElement type");
+			throw std::runtime_error("Interpreter::evalCheckElement: can't use given CheckElement");
 		}
 
 		C_Check eval(Check check) {
@@ -667,7 +669,7 @@ namespace passlang {
 				return firstOperand % secondOperand;
 			}
 
-			throw std::runtime_error(std::string("no such operator ") + expression.operation);
+			throw std::runtime_error(std::string("Interpreter::parseExpression: can't use given operator: ") + expression.operation);
 		}
 
 		int eval(Operand operand) {
@@ -690,12 +692,12 @@ namespace passlang {
 				return getIterator(operand.get<int>());
 			}
 
-			throw std::runtime_error("can't eval operand");
+			throw std::runtime_error("Interpreter::evalOperand: can't use given Operand");
 		}
 
 		int getIterator(int index) {
 			if (index < 0 || index >= loopIterators.size()) {
-				throw std::runtime_error("no loop with such iterator");
+				throw std::runtime_error(std::string("Interpreter::getInterator: can't find loop with iterator: i") + std::to_string(index));
 			}
 			return loopIterators[index];
 		}

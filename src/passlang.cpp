@@ -2,21 +2,22 @@
 
 
 namespace passlang {
-    /************* OTHER *************/
-    std::vector<std::function<void()>> deletables;
+	namespace Deleter {
+		std::vector<std::function<void()>> deleteFunctions;
 
-    template<typename T>
-	void addDeletable(T* object) {
-		std::function<void()> func = [object]() { delete object; };
-		deletables.push_back(func);
+		template<typename T>
+		void addDeletable(T* object) {
+			std::function<void()> func = [object]() { delete object; };
+			deleteFunctions.push_back(func);
+		}
+
+		void deleteAll() {
+			for (size_t i = 0; i < deleteFunctions.size(); i++) {
+				deleteFunctions[i]();
+			}
+			deleteFunctions.clear();
+		}
 	}
-
-    void deleteAll() {
-        for (size_t i = 0; i < deletables.size(); i++) {
-            deletables[i]();
-        }
-        deletables.clear();
-    }
 
     std::ostream& operator<<(std::ostream& stream, C_Check check) {
 		stream << int(check.world);
@@ -112,7 +113,7 @@ std::function<std::vector<passlang::C_Check>(int, std::string)> initPasslang(std
 			std::vector<passlang::C_Check> checks = interpreter.eval(i);
 			results.insert(results.end(), checks.begin(), checks.end());
 		}
-		passlang::deleteAll();
+		passlang::Deleter::deleteAll();
 
 		return results;
 	};
