@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1.0)
 
-project(lang)
+project(passlang)
 
 OPTION(BUILD_TESTS "Build test executables from /test" OFF)
 

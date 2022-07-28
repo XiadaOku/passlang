@@ -4,4 +4,4 @@ set(test_files
 
 add_executable(test ${test_files})
 
-target_link_libraries(test lang)
+target_link_libraries(test passlang)
